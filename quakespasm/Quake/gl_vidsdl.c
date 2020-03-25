@@ -329,6 +329,10 @@ static void VID_Gamma_Init (void)
 		Con_SafePrintf("gamma adjustment not available\n");
 }
 
+#ifdef __ANDROID__
+extern int mobile_screen_width;
+extern int mobile_screen_height;
+#endif
 /*
 ======================
 VID_GetCurrentWidth
@@ -336,6 +340,9 @@ VID_GetCurrentWidth
 */
 static int VID_GetCurrentWidth (void)
 {
+#ifdef __ANDROID__
+	return mobile_screen_width;
+#endif
 #if defined(USE_SDL2)
 	int w = 0, h = 0;
 	SDL_GetWindowSize(draw_context, &w, &h);
@@ -352,6 +359,9 @@ VID_GetCurrentHeight
 */
 static int VID_GetCurrentHeight (void)
 {
+#ifdef __ANDROID__
+	return mobile_screen_height;
+#endif
 #if defined(USE_SDL2)
 	int w = 0, h = 0;
 	SDL_GetWindowSize(draw_context, &w, &h);
@@ -588,6 +598,7 @@ static qboolean VID_SetMode (int width, int height, int refreshrate, int bpp, qb
 	int		previous_display;
 #endif
 
+
 	// so Con_Printfs don't mess us up by forcing vid and snd updates
 	temp = scr_disabled_for_loading;
 	scr_disabled_for_loading = true;
@@ -616,6 +627,12 @@ static qboolean VID_SetMode (int width, int height, int refreshrate, int bpp, qb
 	q_snprintf(caption, sizeof(caption), ENGINE_NAME_AND_VER);
 
 #if defined(USE_SDL2)
+
+#ifdef __ANDROID__
+	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 2);
+	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 0);
+#endif
+
 	/* Create the window if needed, hidden */
 	if (!draw_context)
 	{
@@ -722,6 +739,10 @@ static qboolean VID_SetMode (int width, int height, int refreshrate, int bpp, qb
 
 	SDL_WM_SetCaption(caption, caption);
 #endif /* !defined(USE_SDL2) */
+
+#ifdef __ANDROID__
+    initialize_gl4es();
+#endif
 
 	vid.width = VID_GetCurrentWidth();
 	vid.height = VID_GetCurrentHeight();
@@ -991,6 +1012,35 @@ static qboolean GL_ParseExtensionList (const char *list, const char *name)
 	}
 	return false;
 }
+
+#include <dlfcn.h>
+static void *GL4ESLoad(const char * name)
+{
+    static void* h = NULL;
+
+    if (h == NULL)
+    {
+        h = dlopen("libGL4ES.so", RTLD_LAZY | RTLD_LOCAL);
+        if (h == NULL)
+        {
+            Con_Printf("ERROR loading GL SHIM");
+            return NULL;
+        }
+    }
+
+    void * ret = 0;
+
+	ret =  dlsym(h, (const char*)name);
+
+	if( !ret )
+	{
+        Con_Printf("ERROR loading %s",name);
+        return NULL;
+	}
+
+	return ret;
+}
+#define SDL_GL_GetProcAddress GL4ESLoad
 
 static void GL_CheckExtensions (void)
 {

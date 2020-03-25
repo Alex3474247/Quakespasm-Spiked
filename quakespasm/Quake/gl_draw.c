@@ -536,6 +536,9 @@ void Draw_Character (int x, int y, int num)
 	Draw_CharacterQuad (x, y, (char) num);
 
 	glEnd ();
+#ifdef __ANDROID__ // Force draw, batch QUADS not working properly
+	GL_Bind (0);
+#endif
 }
 
 /*
@@ -560,6 +563,9 @@ void Draw_String (int x, int y, const char *str)
 	}
 
 	glEnd ();
+#ifdef __ANDROID__ // Force draw, batch QUADS not working properly
+	GL_Bind (0);
+#endif
 }
 
 /*
@@ -585,6 +591,9 @@ void Draw_Pic (int x, int y, qpic_t *pic)
 	glTexCoord2f (gl->sl, gl->th);
 	glVertex2f (x, y+pic->height);
 	glEnd ();
+#ifdef __ANDROID__ // Force draw, batch QUADS not working properly
+    GL_Bind (0);
+#endif
 }
 
 void Draw_SubPic (float x, float y, float w, float h, qpic_t *pic, float s1, float t1, float s2, float t2)

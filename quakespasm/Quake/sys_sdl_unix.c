@@ -262,7 +262,9 @@ static void Sys_GetUserdir (char *dst, size_t dstsize)
 	size_t		n;
 	const char	*home_dir = NULL;
 	struct passwd	*pwent;
-
+#ifdef __ANDROID__
+	home_dir = getenv("HOME");
+#else
 	pwent = getpwuid( getuid() );
 	if (pwent == NULL)
 		perror("getpwuid");
@@ -272,7 +274,7 @@ static void Sys_GetUserdir (char *dst, size_t dstsize)
 		home_dir = getenv("HOME");
 	if (home_dir == NULL)
 		Sys_Error ("Couldn't determine userspace directory");
-
+#endif
 /* what would be a maximum path for a file in the user's directory...
  * $HOME/SYS_USERDIR/game_dir/dirname1/dirname2/dirname3/filename.ext
  * still fits in the MAX_OSPATH == 256 definition, but just in case :
@@ -385,7 +387,11 @@ void Sys_mkdir (const char *path)
 
 static const char errortxt1[] = "\nERROR-OUT BEGIN\n\n";
 static const char errortxt2[] = "\nQUAKE ERROR: ";
-
+#ifdef __ANDROID__
+#include <android/log.h>
+#define LOGI(...) ((void)__android_log_print(ANDROID_LOG_INFO,"Quakespasm-Spiked", __VA_ARGS__))
+#include "LogWritter.h"
+#endif
 void Sys_Error (const char *error, ...)
 {
 	va_list		argptr;
@@ -398,6 +404,11 @@ void Sys_Error (const char *error, ...)
 	va_start (argptr, error);
 	q_vsnprintf (text, sizeof(text), error, argptr);
 	va_end (argptr);
+
+#ifdef __ANDROID__
+	LOGI("ERROR: %s",text);
+    LogWritter_Write(text);
+#endif
 
 	fputs (errortxt1, stderr);
 	Host_Shutdown ();
@@ -413,7 +424,16 @@ void Sys_Error (const char *error, ...)
 void Sys_Printf (const char *fmt, ...)
 {
 	va_list argptr;
+#ifdef __ANDROID__
+	char		text[1024];
 
+	va_start (argptr,fmt);
+	vsprintf (text,fmt,argptr);
+	va_end (argptr);
+
+	LOGI("MSG: %s",text);
+    LogWritter_Write(text);
+#endif
 	va_start(argptr, fmt);
 	vprintf(fmt, argptr);
 	va_end(argptr);

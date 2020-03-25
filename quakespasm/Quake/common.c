@@ -1477,7 +1477,7 @@ static void COM_CheckRegistered (void)
 	int		h;
 	unsigned short	check[128];
 	int		i;
-
+#ifndef __ANDROID__
 	COM_OpenFile("gfx/pop.lmp", &h, NULL);
 
 	if (h == -1)
@@ -1501,7 +1501,7 @@ static void COM_CheckRegistered (void)
 		if (pop[i] != (unsigned short)BigShort (check[i]))
 			Sys_Error ("Corrupted data file.");
 	}
-
+#endif
 	for (i = 0; com_cmdline[i]; i++)
 	{
 		if (com_cmdline[i]!= ' ')
@@ -2821,6 +2821,17 @@ void COM_InitFilesystem (void) //johnfitz -- modified based on topaz's tutorial
 		COM_AddGameDirectory (GAMENAME);
 	}
 
+#ifdef __ANDROID__11
+	i = COM_CheckParm ("-cddir");
+	const char *cddir = 0;
+	if (i && i < com_argc-1)
+	{
+		cddir = com_argv[i + 1];
+		Con_Printf ("Using cddir = %s\n", cddir);
+		COM_AddGameDirectory (cddir, "id1");
+	}
+#endif
+
 	/* this is the end of our base searchpath:
 	 * any set gamedirs, such as those from -game command line
 	 * arguments or by the 'game' console command will be freed
@@ -2848,7 +2859,15 @@ void COM_InitFilesystem (void) //johnfitz -- modified based on topaz's tutorial
 			Sys_Error ("gamedir should be a single directory name, not a path\n");
 		com_modified = true;
 		if (p != NULL)
+		{
 			COM_AddGameDirectory (p);
+#ifdef __ANDROID__11
+            if( cddir )
+            {
+                COM_AddGameDirectory (cddir, p);
+            }
+#endif
+		}
 	}
 
 	COM_CheckRegistered ();
