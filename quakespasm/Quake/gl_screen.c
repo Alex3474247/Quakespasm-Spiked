@@ -1159,6 +1159,9 @@ void SCR_UpdateScreen (void)
 
 	GL_BeginRendering (&glx, &gly, &glwidth, &glheight);
 
+#ifdef __ANDROID__
+	GLSLGamma_BindFrameBuffer();
+#endif
 	//
 	// determine size of refresh window
 	//

@@ -209,6 +209,19 @@ extern PFNGLGENBUFFERSARBPROC  GL_GenBuffersFunc;
 extern	qboolean	gl_vbo_able;
 //ericw
 
+#ifdef __ANDROID__
+//emile -- FBO
+extern PFNGLGENFRAMEBUFFERSPROC GL_GenFrameBuffersFunc;
+extern PFNGLBINDFRAMEBUFFERPROC GL_BindFramebuffer;
+extern PFNGLFRAMEBUFFERTEXTURE2DPROC GL_FramebufferTexture2D;
+extern PFNGLFRAMEBUFFERRENDERBUFFERPROC GL_FramebufferRenderbuffer;
+extern PFNGLCHECKFRAMEBUFFERSTATUSPROC GL_CheckFramebufferStatus;
+extern PFNGLGENRENDERBUFFERSPROC GL_GenRenderbuffers;
+extern PFNGLBINDRENDERBUFFERPROC GL_BindRenderbuffer;
+extern PFNGLRENDERBUFFERSTORAGEPROC GL_RenderbufferStorage;
+extern	qboolean	gl_fbo_able;
+#endif
+
 //ericw -- GLSL
 
 // SDL 1.2 has a bug where it doesn't provide these typedefs on OS X!
@@ -456,7 +469,9 @@ void GL_ClearBufferBindings ();
 
 void GLSLGamma_DeleteTexture (void);
 void GLSLGamma_GammaCorrect (void);
-
+#ifdef __ANDROID__
+void GLSLGamma_BindFrameBuffer (void);
+#endif
 void R_ScaleView_DeleteTexture (void);
 
 float GL_WaterAlphaForSurface (msurface_t *fa);

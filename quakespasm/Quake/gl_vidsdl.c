@@ -149,6 +149,19 @@ QS_PFNGLUNIFORM4FVPROC GL_Uniform4fvFunc = NULL; //spike (for iqms)
 
 QS_PFNGLCOMPRESSEDTEXIMAGE2DPROC GL_CompressedTexImage2D = NULL;	//spike
 
+#ifdef __ANDROID__
+//emile -- FBO
+PFNGLGENFRAMEBUFFERSPROC GL_GenFrameBuffersFunc;
+PFNGLBINDFRAMEBUFFERPROC GL_BindFramebuffer;
+PFNGLFRAMEBUFFERTEXTURE2DPROC GL_FramebufferTexture2D;
+PFNGLFRAMEBUFFERRENDERBUFFERPROC GL_FramebufferRenderbuffer;
+PFNGLCHECKFRAMEBUFFERSTATUSPROC GL_CheckFramebufferStatus;
+PFNGLGENRENDERBUFFERSPROC GL_GenRenderbuffers;
+PFNGLBINDRENDERBUFFERPROC GL_BindRenderbuffer;
+PFNGLRENDERBUFFERSTORAGEPROC GL_RenderbufferStorage;
+qboolean	gl_fbo_able;
+#endif
+
 //====================================
 
 //johnfitz -- new cvars
@@ -1329,6 +1342,39 @@ static void GL_CheckExtensions (void)
 	{
 		Con_Warning ("GLSL alias model rendering not available, using Fitz renderer\n");
 	}
+
+#ifdef __ANDROID__
+	if (COM_CheckParm("-nofbo"))
+		Con_Warning ("Framebuffer rendering disabled at command line\n");
+	else
+	{
+		GL_GenFrameBuffersFunc = (PFNGLGENFRAMEBUFFERSPROC) SDL_GL_GetProcAddress("glGenFramebuffers");
+		GL_BindFramebuffer = (PFNGLBINDFRAMEBUFFERPROC) SDL_GL_GetProcAddress("glBindFramebuffer");
+	    GL_FramebufferTexture2D = (PFNGLFRAMEBUFFERTEXTURE2DPROC) SDL_GL_GetProcAddress("glFramebufferTexture2D");
+	    GL_FramebufferRenderbuffer = (PFNGLFRAMEBUFFERRENDERBUFFERPROC) SDL_GL_GetProcAddress("glFramebufferRenderbuffer");
+	    GL_CheckFramebufferStatus = (PFNGLCHECKFRAMEBUFFERSTATUSPROC) SDL_GL_GetProcAddress("glCheckFramebufferStatus");
+	    GL_GenRenderbuffers = (PFNGLGENRENDERBUFFERSPROC) SDL_GL_GetProcAddress("glGenRenderbuffers");
+	    GL_BindRenderbuffer = (PFNGLBINDRENDERBUFFERPROC) SDL_GL_GetProcAddress("glBindRenderbuffer");
+	    GL_RenderbufferStorage = (PFNGLRENDERBUFFERSTORAGEPROC) SDL_GL_GetProcAddress("glRenderbufferStorage");
+
+		if (GL_GenFrameBuffersFunc &&
+		    GL_BindFramebuffer &&
+		    GL_FramebufferTexture2D &&
+		    GL_FramebufferRenderbuffer &&
+		    GL_CheckFramebufferStatus &&
+		    GL_GenRenderbuffers &&
+		    GL_BindRenderbuffer &&
+		    GL_RenderbufferStorage)
+		{
+			Con_Printf("FOUND: FBO\n");
+			gl_fbo_able = true;
+		}
+		else
+		{
+			Con_Warning ("FBO not available\n");
+		}
+	}
+#endif
 }
 
 /*
