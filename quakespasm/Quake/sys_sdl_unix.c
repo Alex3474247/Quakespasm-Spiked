@@ -254,7 +254,11 @@ static char	userdir[MAX_OSPATH];
 #ifdef PLATFORM_OSX
 #define SYS_USERDIR	"Library/Application Support/QuakeSpasm"
 #else
+#ifdef __ANDROID__
+#define SYS_USERDIR	".quakespasm-spiked"
+#else
 #define SYS_USERDIR	".quakespasm"
+#endif
 #endif
 
 static void Sys_GetUserdir (char *dst, size_t dstsize)
