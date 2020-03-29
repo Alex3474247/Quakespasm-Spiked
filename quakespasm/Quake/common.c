@@ -2500,14 +2500,8 @@ qboolean COM_GameDirMatches(const char *tdirs)
 	return false;
 }
 
-/*
-=================
-COM_AddGameDirectory -- johnfitz -- modified based on topaz's tutorial
-=================
-*/
-static void COM_AddGameDirectory (const char *dir)
+static void COM_AddGameDirectoryBase (const char *base, const char *dir)
 {
-	const char *base = com_basedir;
 	int i;
 	unsigned int path_id;
 	searchpath_t *searchdir;
@@ -2516,6 +2510,7 @@ static void COM_AddGameDirectory (const char *dir)
 	FILE *listing;
 	qboolean found;
 	const char *enginepackname = "quakespasm";
+
 
 	if (*dir == '*')
 		dir++;
@@ -2632,7 +2627,32 @@ _add_path:
 		Sys_mkdir(com_gamedir);
 		goto _add_path;
 	}
+
 }
+
+/*
+=================
+COM_AddGameDirectory -- johnfitz -- modified based on topaz's tutorial
+=================
+*/
+static void COM_AddGameDirectory (const char *dir)
+{
+	COM_AddGameDirectoryBase( com_basedir, dir );
+
+#ifdef __ANDROID__
+    int i = COM_CheckParm ("-cddir");
+    const char *cddir = 0;
+    if (i && i < com_argc-1)
+    {
+        cddir = com_argv[i + 1];
+        Con_Printf ("Using cddir = %s\n", cddir);
+
+        COM_AddGameDirectoryBase( cddir, dir );
+    }
+#endif
+}
+
+
 
 void COM_ResetGameDirectories(char *newgamedirs)
 {
@@ -2821,16 +2841,6 @@ void COM_InitFilesystem (void) //johnfitz -- modified based on topaz's tutorial
 		COM_AddGameDirectory (GAMENAME);
 	}
 
-#ifdef __ANDROID__11
-	i = COM_CheckParm ("-cddir");
-	const char *cddir = 0;
-	if (i && i < com_argc-1)
-	{
-		cddir = com_argv[i + 1];
-		Con_Printf ("Using cddir = %s\n", cddir);
-		COM_AddGameDirectory (cddir, "id1");
-	}
-#endif
 
 	/* this is the end of our base searchpath:
 	 * any set gamedirs, such as those from -game command line
@@ -2861,12 +2871,6 @@ void COM_InitFilesystem (void) //johnfitz -- modified based on topaz's tutorial
 		if (p != NULL)
 		{
 			COM_AddGameDirectory (p);
-#ifdef __ANDROID__11
-            if( cddir )
-            {
-                COM_AddGameDirectory (cddir, p);
-            }
-#endif
 		}
 	}
 
