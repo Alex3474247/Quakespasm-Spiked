@@ -234,6 +234,7 @@ void GLSLGamma_BindFrameBuffer (void)
 
 	// Render to framebuffer
     GL_BindFramebuffer(GL_FRAMEBUFFER, r_gamma_framebuffer);
+    GL_BindRenderbuffer(GL_RENDERBUFFER, r_gamma_depthbuffer);
     GL_FramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, r_gamma_framebuffer_texture, 0);
     GL_FramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, r_gamma_depthbuffer);
 
@@ -272,6 +273,7 @@ void GLSLGamma_GammaCorrect (void)
 
 		// Unbind framebuffer
 		GL_BindFramebuffer(GL_FRAMEBUFFER, 0);
+	    GL_BindRenderbuffer(GL_RENDERBUFFER, 0);
 
 		// copy the framebuffer to the texture
 		GL_DisableMultitexture();
@@ -301,6 +303,7 @@ void GLSLGamma_GammaCorrect (void)
 		glTexCoord2f (0, tmax);
 		glVertex2f (-1, 1);
 		glEnd ();
+		glBindTexture  (GL_TEXTURE_2D,0);
 
 		GL_UseProgramFunc (0);
 
