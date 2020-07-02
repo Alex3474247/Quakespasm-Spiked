@@ -255,7 +255,7 @@ static char	userdir[MAX_OSPATH];
 #define SYS_USERDIR	"Library/Application Support/QuakeSpasm"
 #else
 #ifdef __ANDROID__
-#define SYS_USERDIR	".quakespasm-spiked"
+#define SYS_USERDIR	"../user_files/quakespasm-spiked"
 #else
 #define SYS_USERDIR	".quakespasm"
 #endif
