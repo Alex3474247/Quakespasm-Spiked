@@ -4,7 +4,7 @@ include $(CLEAR_VARS)
 
 LOCAL_MODULE := quakespasm-spiked
 
-LOCAL_CFLAGS := -DQUAKESPASM_SPIKED -DUSE_CODEC_VORBIS -DUSE_CODEC_MP3 -DDO_USERDIRS=1 -DENGINE_NAME=\"quakespasm\" -DUSE_SDL2 -DNO_SDL_CONFIG -DHAVE_JWZGLES
+LOCAL_CFLAGS := -DQUAKESPASM_SPIKED  -DUSE_ZLIB -DUSE_CODEC_VORBIS -DUSE_CODEC_MP3 -DDO_USERDIRS=1 -DENGINE_NAME=\"quakespasm\" -DUSE_SDL2 -DNO_SDL_CONFIG -DHAVE_JWZGLES
 
 LOCAL_C_INCLUDES :=     $(SDL_INCLUDE_PATHS)  \
                         $(TOP_DIR) \
@@ -12,6 +12,7 @@ LOCAL_C_INCLUDES :=     $(SDL_INCLUDE_PATHS)  \
                         $(TOP_DIR)/MobileTouchControls \
                         $(TOP_DIR)/AudioLibs_OpenTouch/liboggvorbis/include \
                         $(TOP_DIR)/AudioLibs_OpenTouch/libmpg123 \
+                         $(TOP_DIR)/AudioLibs_OpenTouch/libmad \
                         $(TOP_DIR)/Clibs_OpenTouch \
                         $(TOP_DIR)/Clibs_OpenTouch/quake \
 
@@ -23,6 +24,7 @@ MUSIC_OBJS := \
        	snd_wave.o \
        	snd_vorbis.o \
        	snd_opus.o \
+       	snd_mp3tag.o \
        	snd_mpg123.o \
        	snd_mikmod.o \
        	snd_xmp.o \
@@ -115,7 +117,7 @@ LOCAL_SRC_FILES :=  $(OBJS:.o=.c) \
 
 
 LOCAL_LDLIBS := -lEGL -ldl -llog -lz
-LOCAL_STATIC_LIBRARIES := sigc libzip libpng logwritter  mpg123 ifaddrs
+LOCAL_STATIC_LIBRARIES := sigc libzip libpng logwritter  mpg123 ifaddrs mad
 LOCAL_SHARED_LIBRARIES := touchcontrols SDL2 SDL2_mixer core_shared GL4ES saffal
 
 include $(BUILD_SHARED_LIBRARY)

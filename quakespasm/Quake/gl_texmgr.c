@@ -66,7 +66,9 @@ static struct
 
 	{"RGBA8",		"RGBA", GL_RGBA,GL_RGBA,GL_UNSIGNED_INT_8_8_8_8_REV,	 4, 1, 1, NULL},
 	{"RGB8",		"RGB",  GL_RGB,GL_RGB,GL_UNSIGNED_BYTE,					 3, 1, 1, NULL},
+#ifndef __ANDROID__	
 	{"RGB565",		"565",  GL_RGB565,GL_RGB,GL_UNSIGNED_SHORT_5_6_5,		 2, 1, 1, NULL},
+#endif
 	{"RGBA4444",	"4444", GL_RGBA4,GL_RGBA,GL_UNSIGNED_SHORT_4_4_4_4,		 2, 1, 1, NULL},
 	{"RGBA5551",	"5551", GL_RGB5_A1,GL_RGBA,GL_UNSIGNED_SHORT_5_5_5_1,	 2, 1, 1, NULL},
 	{"L8",			"LUM8", GL_LUMINANCE8,GL_LUMINANCE,GL_UNSIGNED_BYTE,	 1, 1, 1, NULL},
@@ -76,6 +78,7 @@ static struct
 	{"BC3_RGBA",	"BC3",  GL_COMPRESSED_RGBA_S3TC_DXT5_EXT,0,0,			16, 4, 4, &gl_texture_s3tc},
 	{"BC4_R",		"BC4",  GL_COMPRESSED_RED_RGTC1,0,0,					 8, 4, 4, &gl_texture_rgtc},
 	{"BC5_RG",		"BC5",  GL_COMPRESSED_RG_RGTC2,0,0,						16, 4, 4, &gl_texture_rgtc},
+#ifndef __ANDROID__
 	{"BC6_RGB_UFLOAT","BC6",GL_COMPRESSED_RGB_BPTC_UNSIGNED_FLOAT,0,0,		16, 4, 4, &gl_texture_bptc},
 	{"BC7_RGBA",	"BC7",  GL_COMPRESSED_RGBA_BPTC_UNORM,0,0,				16, 4, 4, &gl_texture_bptc},
 	{"ETC1_RGB8",	"ETC1", GL_COMPRESSED_RGB8_ETC2,0,0,					 8, 4, 4, &gl_texture_etc2},
@@ -96,6 +99,7 @@ static struct
 	{"ASTC_10X10",	"AST0", GL_COMPRESSED_RGBA_ASTC_10x10_KHR,0,0,			16, 8, 8, &gl_texture_astc},
 	{"ASTC_12X10",	"AST0", GL_COMPRESSED_RGBA_ASTC_12x10_KHR,0,0,			16, 8, 8, &gl_texture_astc},
 	{"ASTC_12X12",	"AST2", GL_COMPRESSED_RGBA_ASTC_12x12_KHR,0,0,			16, 8, 8, &gl_texture_astc},
+#endif
 };
 
 /*
