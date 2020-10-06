@@ -72,6 +72,7 @@ OBJS := strlcat.o \
 	$(SYSOBJ_CDA) \
 	$(SYSOBJ_NET) \
 	net_dgrm.o \
+	mdfour.o \
 	net_loop.o \
 	net_main.o \
 	chase.o \
