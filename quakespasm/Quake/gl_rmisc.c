@@ -648,8 +648,10 @@ void GL_BindBuffer (GLenum target, GLuint buffer)
 			Host_Error("GL_BindBuffer: unsupported target %d", (int)target);
 			return;
 	}
-	
+
+#ifndef __ANDROID__
 	if (*cache != buffer)
+#endif
 	{
 		*cache = buffer;
 		GL_BindBufferFunc (target, *cache);
