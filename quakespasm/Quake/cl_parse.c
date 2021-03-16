@@ -71,8 +71,8 @@ const char *svc_strings[128] =
 	"svc_sellscreen",
 	"svc_cutscene",
 //johnfitz -- new server messages
-	"35",	// 35
-	"36",	// 36
+	"svc_showpic_dp",	// 35
+	"svc_hidepic_dp",	// 36
 	"svc_skybox_fitz", // 37					// [string] skyname
 	"38", // 38
 	"39", // 39
@@ -172,6 +172,7 @@ const char *svc_strings[128] =
 qboolean warn_about_nehahra_protocol; //johnfitz
 
 extern vec3_t	v_punchangles[2]; //johnfitz
+extern double	v_punchangles_times[2]; //spike -- don't assume 10fps...
 
 //=============================================================================
 
@@ -723,6 +724,7 @@ static void CLFTE_ParseEntitiesUpdate(void)
 
 	if (cl.protocol_pext2 & PEXT2_PREDINFO)
 	{	//stats should normally be sent before the entity data.
+		extern cvar_t v_gunkick;
 		VectorCopy (cl.mvelocity[0], cl.mvelocity[1]);
 		ent = CL_EntityNum(cl.viewentity);
 		cl.mvelocity[0][0] = ent->netstate.velocity[0]*(1/8.0);
@@ -731,11 +733,23 @@ static void CLFTE_ParseEntitiesUpdate(void)
 		cl.onground = (ent->netstate.eflags & EFLAGS_ONGROUND)?true:false;
 
 
-		cl.punchangle[0] = cl.statsf[STAT_PUNCHANGLE_X];
-		cl.punchangle[1] = cl.statsf[STAT_PUNCHANGLE_Y];
-		cl.punchangle[2] = cl.statsf[STAT_PUNCHANGLE_Z];
+		if (v_gunkick.value == 1)
+		{	//truncate away any extra precision, like vanilla/qs would.
+			cl.punchangle[0] = cl.stats[STAT_PUNCHANGLE_X];
+			cl.punchangle[1] = cl.stats[STAT_PUNCHANGLE_Y];
+			cl.punchangle[2] = cl.stats[STAT_PUNCHANGLE_Z];
+		}
+		else
+		{	//woo, more precision
+			cl.punchangle[0] = cl.statsf[STAT_PUNCHANGLE_X];
+			cl.punchangle[1] = cl.statsf[STAT_PUNCHANGLE_Y];
+			cl.punchangle[2] = cl.statsf[STAT_PUNCHANGLE_Z];
+		}
 		if (v_punchangles[0][0] != cl.punchangle[0] || v_punchangles[0][1] != cl.punchangle[1] || v_punchangles[0][2] != cl.punchangle[2])
 		{
+			v_punchangles_times[1] = v_punchangles_times[0];
+			v_punchangles_times[0] = newtime;
+
 			VectorCopy (v_punchangles[0], v_punchangles[1]);
 			VectorCopy (cl.punchangle, v_punchangles[0]);
 		}
@@ -1764,16 +1778,21 @@ static void CL_ParseBaseline (entity_t *ent, int version) //johnfitz -- added ar
 }
 
 
+#define CL_SetStati(stat, val) cl.statsf[stat] = (cl.stats[stat] = val)
+#define CL_SetHudStat(stat, val) if (cl.stats[stat] != val)Sbar_Changed(); CL_SetStati(stat,val)
+
 /*
 ==================
 CL_ParseClientdata
 
 Server information pertaining to this client only
+
+Spike -- tweaked this function to ensure float stats get set as well as int ones (so csqc can't get confused).
 ==================
 */
 static void CL_ParseClientdata (void)
 {
-	int		i, j;
+	int		i;
 	int		bits; //johnfitz
 
 	bits = (unsigned short)MSG_ReadShort (); //johnfitz -- read bits here isntead of in CL_ParseServerMessage()
@@ -1789,14 +1808,14 @@ static void CL_ParseClientdata (void)
 		bits |= SU_ITEMS;
 
 	if (bits & SU_VIEWHEIGHT)
-		cl.stats[STAT_VIEWHEIGHT] = MSG_ReadChar ();
+		CL_SetStati(STAT_VIEWHEIGHT, MSG_ReadChar ());
 	else if (cl.protocol != PROTOCOL_VERSION_DP7)
-		cl.stats[STAT_VIEWHEIGHT] = DEFAULT_VIEWHEIGHT;
+		CL_SetStati(STAT_VIEWHEIGHT, DEFAULT_VIEWHEIGHT);
 
 	if (bits & SU_IDEALPITCH)
-		cl.statsf[STAT_IDEALPITCH] = MSG_ReadChar ();
+		CL_SetStati(STAT_IDEALPITCH, MSG_ReadChar ());
 	else
-		cl.statsf[STAT_IDEALPITCH] = 0;
+		CL_SetStati(STAT_IDEALPITCH, 0);
 
 	VectorCopy (cl.mvelocity[0], cl.mvelocity[1]);
 	for (i = 0; i < 3; i++)
@@ -1819,13 +1838,15 @@ static void CL_ParseClientdata (void)
 	//johnfitz -- update v_punchangles
 	if (v_punchangles[0][0] != cl.punchangle[0] || v_punchangles[0][1] != cl.punchangle[1] || v_punchangles[0][2] != cl.punchangle[2])
 	{
+		v_punchangles_times[1] = v_punchangles_times[0];
+		v_punchangles_times[0] = cl.mtime[0];
 		VectorCopy (v_punchangles[0], v_punchangles[1]);
 		VectorCopy (cl.punchangle, v_punchangles[0]);
 	}
 	//johnfitz
 
 	if (bits & SU_ITEMS)
-		cl.stats[STAT_ITEMS] = MSG_ReadLong ();
+		CL_SetStati(STAT_ITEMS, MSG_ReadLong ());
 
 	cl.onground = (bits & SU_ONGROUND) != 0;
 	cl.inwater = (bits & SU_INWATER) != 0;
@@ -1836,101 +1857,66 @@ static void CL_ParseClientdata (void)
 	}
 	else
 	{
+		unsigned short weaponframe = 0;
+		unsigned short armourval = 0;
+		unsigned short weaponmodel = 0;
+		unsigned int activeweapon;
+		short health;
+		unsigned short ammo;
+		unsigned short ammovals[4];
+
 		if (bits & SU_WEAPONFRAME)
-			cl.stats[STAT_WEAPONFRAME] = MSG_ReadByte ();
-		else
-			cl.stats[STAT_WEAPONFRAME] = 0;
-
+			weaponframe = MSG_ReadByte ();
 		if (bits & SU_ARMOR)
-			i = MSG_ReadByte ();
-		else
-			i = 0;
-		if (cl.stats[STAT_ARMOR] != i)
-		{
-			cl.stats[STAT_ARMOR] = i;
-			Sbar_Changed ();
-		}
-
+			armourval = MSG_ReadByte ();
 		if (bits & SU_WEAPON)
 		{
 			if (cl.protocol == PROTOCOL_VERSION_BJP3)
-				i = MSG_ReadShort();
+				weaponmodel = MSG_ReadShort();
 			else
-				i = MSG_ReadByte ();
+				weaponmodel = MSG_ReadByte ();
 		}
-		else
-			i = 0;
-		if (cl.stats[STAT_WEAPON] != i)
-		{
-			cl.stats[STAT_WEAPON] = i;
-			Sbar_Changed ();
-		}
-
-		i = MSG_ReadShort ();
-		if (cl.stats[STAT_HEALTH] != i)
-		{
-			cl.stats[STAT_HEALTH] = i;
-			Sbar_Changed ();
-		}
-
-		i = MSG_ReadByte ();
-		if (cl.stats[STAT_AMMO] != i)
-		{
-			cl.stats[STAT_AMMO] = i;
-			Sbar_Changed ();
-		}
-
+		health = MSG_ReadShort ();
+		ammo = MSG_ReadByte ();
 		for (i = 0; i < 4; i++)
-		{
-			j = MSG_ReadByte ();
-			if (cl.stats[STAT_SHELLS+i] != j)
-			{
-				cl.stats[STAT_SHELLS+i] = j;
-				Sbar_Changed ();
-			}
-		}
-
-		i = MSG_ReadByte ();
-
-		if (standard_quake)
-		{
-			if (cl.stats[STAT_ACTIVEWEAPON] != i)
-			{
-				cl.stats[STAT_ACTIVEWEAPON] = i;
-				Sbar_Changed ();
-			}
-		}
-		else
-		{
-			if (cl.stats[STAT_ACTIVEWEAPON] != (1<<i))
-			{
-				cl.stats[STAT_ACTIVEWEAPON] = (1<<i);
-				Sbar_Changed ();
-			}
-		}
+			ammovals[i] = MSG_ReadByte ();
+		activeweapon = MSG_ReadByte ();
+		if (!standard_quake)
+			activeweapon = 1u<<activeweapon;
 
 		//johnfitz -- PROTOCOL_FITZQUAKE
 		if (bits & SU_WEAPON2)
-			cl.stats[STAT_WEAPON] |= (MSG_ReadByte() << 8);
+			weaponmodel |= (MSG_ReadByte() << 8);
 		if (bits & SU_ARMOR2)
-			cl.stats[STAT_ARMOR] |= (MSG_ReadByte() << 8);
+			armourval |= (MSG_ReadByte() << 8);
 		if (bits & SU_AMMO2)
-			cl.stats[STAT_AMMO] |= (MSG_ReadByte() << 8);
+			ammo |= (MSG_ReadByte() << 8);
 		if (bits & SU_SHELLS2)
-			cl.stats[STAT_SHELLS] |= (MSG_ReadByte() << 8);
+			ammovals[0] |= (MSG_ReadByte() << 8);
 		if (bits & SU_NAILS2)
-			cl.stats[STAT_NAILS] |= (MSG_ReadByte() << 8);
+			ammovals[1] |= (MSG_ReadByte() << 8);
 		if (bits & SU_ROCKETS2)
-			cl.stats[STAT_ROCKETS] |= (MSG_ReadByte() << 8);
+			ammovals[2] |= (MSG_ReadByte() << 8);
 		if (bits & SU_CELLS2)
-			cl.stats[STAT_CELLS] |= (MSG_ReadByte() << 8);
+			ammovals[3] |= (MSG_ReadByte() << 8);
 		if (bits & SU_WEAPONFRAME2)
-			cl.stats[STAT_WEAPONFRAME] |= (MSG_ReadByte() << 8);
+			weaponframe |= (MSG_ReadByte() << 8);
 		if (bits & SU_WEAPONALPHA)
 			cl.viewent.alpha = MSG_ReadByte();
 		else
 			cl.viewent.alpha = ENTALPHA_DEFAULT;
 		//johnfitz
+
+		CL_SetHudStat(STAT_WEAPONFRAME, weaponframe);
+		CL_SetHudStat(STAT_ARMOR, armourval);
+		CL_SetHudStat(STAT_WEAPON, weaponmodel);
+		CL_SetHudStat(STAT_ACTIVEWEAPON, activeweapon);
+		CL_SetHudStat(STAT_HEALTH, health);
+		CL_SetHudStat(STAT_AMMO, ammo);
+		CL_SetHudStat(STAT_SHELLS, ammovals[0]);
+		CL_SetHudStat(STAT_NAILS, ammovals[1]);
+		CL_SetHudStat(STAT_ROCKETS, ammovals[2]);
+		CL_SetHudStat(STAT_CELLS, ammovals[3]);
 	}
 
 	//johnfitz -- lerping
@@ -2718,6 +2704,18 @@ void CL_ParseServerMessage (void)
 			break;
 #endif
 
+		//these two are used by nehahra. we ignore them, parsing only to avoid crashing.
+		case svcdp_showpic:
+			/*slotname = */MSG_ReadString();
+			/*imagename = */MSG_ReadString();
+			/*x = */MSG_ReadByte();	//FIXME: nehahra uses bytes, but DP uses shorts for other games. just use csqc instead.
+			/*y = */MSG_ReadByte();
+			Con_DPrintf("Ignoring svcdp_showpic\n");
+			break;
+		case svcdp_hidepic:
+			/*slotname = */MSG_ReadString();
+			Con_DPrintf("Ignoring svcdp_hidepic\n");
+			break;
 
 		case svcdp_effect:
 		case svcdp_effect2:	//these are kinda pointless when the particle system can do it

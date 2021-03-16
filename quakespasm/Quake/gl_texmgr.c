@@ -132,7 +132,7 @@ static glmode_t glmodes[] = {
 	{GL_LINEAR,  GL_NEAREST_MIPMAP_LINEAR,	"lln", NULL},
 };
 #define NUM_GLMODES (int)(sizeof(glmodes)/sizeof(glmodes[0]))
-static int glmode_idx = NUM_GLMODES - 1; /* trilinear */
+static int glmode_idx = 5; /* trilinear */
 
 /*
 ===============
@@ -693,7 +693,7 @@ void TexMgr_Init (void)
 	Cvar_RegisterVariable (&gl_picmip);
 	Cvar_RegisterVariable (&gl_texture_anisotropy);
 	Cvar_SetCallback (&gl_texture_anisotropy, &TexMgr_Anisotropy_f);
-	gl_texturemode.string = glmodes[glmode_idx].name2?glmodes[glmode_idx].name2:glmodes[glmode_idx].name1;
+	gl_texturemode.string = glmodes[glmode_idx].name1?glmodes[glmode_idx].name1:glmodes[glmode_idx].name2;
 	Cvar_RegisterVariable (&gl_texturemode);
 	Cvar_SetCallback (&gl_texturemode, &TexMgr_TextureMode_f);
 	Cmd_AddCommand ("gl_describetexturemodes", &TexMgr_DescribeTextureModes_f);
@@ -1428,10 +1428,10 @@ gltexture_t *TexMgr_LoadImage (qmodel_t *owner, const char *name, int width, int
 			       byte *data, const char *source_file, src_offset_t source_offset, unsigned flags)
 {
 	unsigned short crc;
-	gltexture_t *glt;
+	gltexture_t *glt = NULL;
 	int mark;
-	qboolean malloced;
-	enum srcformat fmt;
+	qboolean malloced = false;
+	enum srcformat fmt = format;
 
 	if (isDedicated)
 		return NULL;
@@ -1446,7 +1446,15 @@ gltexture_t *TexMgr_LoadImage (qmodel_t *owner, const char *name, int width, int
 		if (glt->source_crc == crc)
 			return glt;
 	}
-	else
+
+	if (format == SRC_EXTERNAL)
+	{
+		data = Image_LoadImage (source_file, &width, &height, &fmt, &malloced); //simple file
+		if (!data && (flags & TEXPREF_ALLOWMISSING))
+			return NULL;	//don't allocate anything.
+	}
+
+	if (!glt)
 		glt = TexMgr_NewTexture ();
 
 	// copy data
@@ -1476,7 +1484,6 @@ gltexture_t *TexMgr_LoadImage (qmodel_t *owner, const char *name, int width, int
 		TexMgr_LoadLightmap (glt, data);
 		break;
 	case SRC_EXTERNAL:
-		data = Image_LoadImage (glt->source_file, (int *)&glt->source_width, (int *)&glt->source_height, &fmt, &malloced); //simple file
 		if (!data)
 		{
 			glt->source_width = glt->source_height = 1;

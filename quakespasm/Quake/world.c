@@ -624,6 +624,7 @@ enum
 };
 struct rhtctx_s
 {
+	unsigned int hitcontents;
 	vec3_t start, end;
 	mclipnode_t	*clipnodes;
 	mplane_t	*planes;
@@ -661,7 +662,7 @@ reenter:
 	{
 		/*hit a leaf*/
 		trace->contents = num;
-		if (num == CONTENTS_SOLID)
+		if (ctx->hitcontents & CONTENTMASK_FROMQ1(num))
 		{
 			if (trace->allsolid)
 				trace->startsolid = true;
@@ -672,7 +673,7 @@ reenter:
 			trace->allsolid = false;
 			if (num == CONTENTS_EMPTY)
 				trace->inopen = true;
-			else
+			else if (num != CONTENTS_SOLID)
 				trace->inwater = true;
 			return rht_empty;
 		}
@@ -768,26 +769,22 @@ SV_RecursiveHullCheck
 Decides if its a simple point test, or does a slightly more expensive check.
 ==================
 */
-qboolean SV_RecursiveHullCheck (hull_t *hull, int num, float p1f, float p2f, vec3_t p1, vec3_t p2, trace_t *trace)
+qboolean SV_RecursiveHullCheck (hull_t *hull, vec3_t p1, vec3_t p2, trace_t *trace, unsigned int hitcontents)
 {
 	if (p1[0]==p2[0] && p1[1]==p2[1] && p1[2]==p2[2])
 	{
 		/*points cannot cross planes, so do it faster*/
-		int c = SV_HullPointContents(hull, num, p1);
+		int c = SV_HullPointContents(hull, hull->firstclipnode, p1);
 		trace->contents = c;
-		switch(c)
-		{
-		case CONTENTS_SOLID:
+		if (hitcontents & CONTENTMASK_FROMQ1(c))
 			trace->startsolid = true;
-			break;
-		case CONTENTS_EMPTY:
+		else
+		{
 			trace->allsolid = false;
-			trace->inopen = true;
-			break;
-		default:
-			trace->allsolid = false;
-			trace->inwater = true;
-			break;
+			if (c == CONTENTS_EMPTY)
+				trace->inopen = true;
+			else if (c != CONTENTS_SOLID)
+				trace->inwater = true;
 		}
 		return true;
 	}
@@ -798,7 +795,8 @@ qboolean SV_RecursiveHullCheck (hull_t *hull, int num, float p1f, float p2f, vec
 		VectorCopy(p2, ctx.end);
 		ctx.clipnodes = hull->clipnodes;
 		ctx.planes = hull->planes;
-		return Q1BSP_RecursiveHullTrace(&ctx, num, p1f, p2f, p1, p2, trace) != rht_impact;
+		ctx.hitcontents = hitcontents;
+		return Q1BSP_RecursiveHullTrace(&ctx, hull->firstclipnode, 0, 1, p1, p2, trace) != rht_impact;
 	}
 }
 
@@ -810,7 +808,7 @@ Handles selection or creation of a clipping hull, and offseting (and
 eventually rotation) of the end points
 ==================
 */
-trace_t SV_ClipMoveToEntity (edict_t *ent, vec3_t start, vec3_t mins, vec3_t maxs, vec3_t end)
+trace_t SV_ClipMoveToEntity (edict_t *ent, vec3_t start, vec3_t mins, vec3_t maxs, vec3_t end, unsigned int hitcontents)
 {
 	trace_t		trace;
 	vec3_t		offset;
@@ -842,7 +840,7 @@ trace_t SV_ClipMoveToEntity (edict_t *ent, vec3_t start, vec3_t mins, vec3_t max
 		end_r[0] = DotProduct(end_l, axis[0]);
 		end_r[1] = DotProduct(end_l, axis[1]);
 		end_r[2] = DotProduct(end_l, axis[2]);
-		SV_RecursiveHullCheck (hull, hull->firstclipnode, 0, 1, start_r, end_r, &trace);
+		SV_RecursiveHullCheck (hull, start_r, end_r, &trace, hitcontents);
 		VectorCopy(trace.endpos, tmp);
 		trace.endpos[0] = DotProductTranspose(tmp,axis,0);
 		trace.endpos[1] = DotProductTranspose(tmp,axis,1);
@@ -853,7 +851,7 @@ trace_t SV_ClipMoveToEntity (edict_t *ent, vec3_t start, vec3_t mins, vec3_t max
 		trace.plane.normal[2] = DotProductTranspose(tmp,axis,2);
 	}
 	else
-		SV_RecursiveHullCheck (hull, hull->firstclipnode, 0, 1, start_l, end_l, &trace);
+		SV_RecursiveHullCheck (hull, start_l, end_l, &trace, hitcontents);
 
 // fix trace up by the offset
 	if (trace.fraction != 1)
@@ -928,14 +926,24 @@ static void SV_ClipToLinks ( areanode_t *node, moveclip_t *clip )
 				continue;	// don't clip against owner
 		}
 
-		if ((int)touch->v.flags & FL_MONSTER)
-			trace = SV_ClipMoveToEntity (touch, clip->start, clip->mins2, clip->maxs2, clip->end);
+		if (touch->v.skin < 0)
+		{
+			if (!(clip->hitcontents & (1<<-(int)touch->v.skin)))
+				continue;	//not solid, don't bother trying to clip.
+			if ((int)touch->v.flags & FL_MONSTER)
+				trace = SV_ClipMoveToEntity (touch, clip->start, clip->mins2, clip->maxs2, clip->end, ~(1<<-CONTENTS_EMPTY));
+			else
+				trace = SV_ClipMoveToEntity (touch, clip->start, clip->mins, clip->maxs, clip->end, ~(1<<-CONTENTS_EMPTY));
+			if (trace.contents != CONTENTS_EMPTY)
+				trace.contents = touch->v.skin;
+		}
 		else
-			trace = SV_ClipMoveToEntity (touch, clip->start, clip->mins, clip->maxs, clip->end);
-		if (trace.contents == CONTENTS_SOLID && touch->v.skin < 0)
-			trace.contents = touch->v.skin;
-		if (!((1<<(-trace.contents)) & clip->hitcontents))
-			continue;
+		{
+			if ((int)touch->v.flags & FL_MONSTER)
+				trace = SV_ClipMoveToEntity (touch, clip->start, clip->mins2, clip->maxs2, clip->end, clip->hitcontents);
+			else
+				trace = SV_ClipMoveToEntity (touch, clip->start, clip->mins, clip->maxs, clip->end, clip->hitcontents);
+		}
 
 		if (trace.allsolid || trace.startsolid ||
 		trace.fraction < clip->trace.fraction)
@@ -1067,7 +1075,7 @@ static void World_ClipToNetwork ( moveclip_t *clip )
 				end_r[0] = DotProduct(end_l, axis[0]);
 				end_r[1] = DotProduct(end_l, axis[1]);
 				end_r[2] = DotProduct(end_l, axis[2]);
-				SV_RecursiveHullCheck (hull, hull->firstclipnode, 0, 1, start_r, end_r, &trace);
+				SV_RecursiveHullCheck (hull, start_r, end_r, &trace, clip->hitcontents);
 				VectorCopy(trace.endpos, tmp);
 				trace.endpos[0] = DotProductTranspose(tmp,axis,0);
 				trace.endpos[1] = DotProductTranspose(tmp,axis,1);
@@ -1078,7 +1086,7 @@ static void World_ClipToNetwork ( moveclip_t *clip )
 				trace.plane.normal[2] = DotProductTranspose(tmp,axis,2);
 			}
 			else
-				SV_RecursiveHullCheck (hull, hull->firstclipnode, 0, 1, start_l, end_l, &trace);
+				SV_RecursiveHullCheck (hull, start_l, end_l, &trace, clip->hitcontents);
 
 		// fix trace up by the offset
 			if (trace.fraction != 1)
@@ -1154,8 +1162,13 @@ trace_t SV_Move (vec3_t start, vec3_t mins, vec3_t maxs, vec3_t end, int type, e
 
 	memset ( &clip, 0, sizeof ( moveclip_t ) );
 
+	if (type & MOVE_HITALLCONTENTS)
+		clip.hitcontents = ~0u;
+	else
+		clip.hitcontents = CONTENTMASK_ANYSOLID;
+
 // clip to world
-	clip.trace = SV_ClipMoveToEntity ( qcvm->edicts, start, mins, maxs, end );
+	clip.trace = SV_ClipMoveToEntity ( qcvm->edicts, start, mins, maxs, end, clip.hitcontents );
 
 	clip.start = start;
 	clip.end = end;
@@ -1163,10 +1176,6 @@ trace_t SV_Move (vec3_t start, vec3_t mins, vec3_t maxs, vec3_t end, int type, e
 	clip.maxs = maxs;
 	clip.type = type&3;
 	clip.passedict = passedict;
-	if (type & MOVE_HITALLCONTENTS)
-		clip.hitcontents = ~0u;
-	else
-		clip.hitcontents = (1<<(-CONTENTS_SOLID)) | (1<<(-CONTENTS_CLIP));
 
 	if (type == MOVE_MISSILE)
 	{

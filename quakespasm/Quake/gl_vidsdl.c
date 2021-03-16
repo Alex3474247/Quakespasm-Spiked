@@ -1448,7 +1448,7 @@ static void GL_Init (void)
 	if (!strcmp(gl_vendor, "Intel"))
 	{
 		Con_Printf ("Intel Display Adapter detected, enabling gl_clear\n");
-		Cbuf_AddText ("gl_clear 1");
+		Cbuf_AddText ("gl_clear 1\n");	//Spike -- don't forget your \ns guys...
 	}
 	//johnfitz
 

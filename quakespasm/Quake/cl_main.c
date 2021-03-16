@@ -143,6 +143,9 @@ void CL_ClearState (void)
 #ifdef PSET_SCRIPT
 	PScript_Shutdown();
 #endif
+
+	if (!sv.active)
+		Draw_ReloadTextures(false);
 }
 
 /*
@@ -1064,7 +1067,7 @@ qboolean CL_CheckDownloads(void)
 			COM_Effectinfo_Enumerate(CL_GenerateRandomParticlePrecache);
 			cl.protocol_particles = true;
 		}
-		else if (cl.protocol_pext2)
+		else if (cl.protocol_pext2 || (cl.protocol_pext1&PEXT1_CSQC))
 			cl.protocol_particles = true;	//doesn't have a pext flag of its own, but at least we know what it is.
 #endif
 	}
