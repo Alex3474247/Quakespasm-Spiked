@@ -247,6 +247,8 @@ void GLSLGamma_BindFrameBuffer (void)
 #endif
 
 #ifdef __ANDROID__
+extern int mobile_screen_width;
+extern int mobile_screen_height;
 /*
 =============
 GLSLGamma_GammaCorrect
@@ -288,7 +290,7 @@ void GLSLGamma_GammaCorrect (void)
 		glDisable (GL_ALPHA_TEST);
 		glDisable (GL_DEPTH_TEST);
 
-		glViewport (glx, gly, glwidth, glheight);
+		glViewport (glx, gly, mobile_screen_width, mobile_screen_height);
 
 		smax = glwidth/(float)r_gamma_framebuffer_width;
 		tmax = glheight/(float)r_gamma_framebuffer_height;
@@ -365,7 +367,7 @@ void GLSLGamma_GammaCorrect (void)
 		glDisable (GL_ALPHA_TEST);
 		glDisable (GL_DEPTH_TEST);
 
-		glViewport (glx, gly, glwidth, glheight);
+		glViewport (glx, gly, mobile_screen_width, mobile_screen_height);
 
 		smax = glwidth/(float)r_gamma_texture_width;
 		tmax = glheight/(float)r_gamma_texture_height;
