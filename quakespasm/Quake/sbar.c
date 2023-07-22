@@ -73,6 +73,8 @@ void Sbar_MiniDeathmatchOverlay (void);
 void Sbar_DeathmatchOverlay (void);
 void M_DrawPic (int x, int y, qpic_t *pic);
 
+cvar_t sbar_digits = {"sbar_digits", "3", CVAR_ARCHIVE };//alex3474247
+
 qboolean Sbar_CSQCCommand(void)
 {
 	qboolean ret = false;
@@ -297,6 +299,7 @@ void Sbar_Init (void)
 {
 	Cmd_AddCommand ("+showscores", Sbar_ShowScores);
 	Cmd_AddCommand ("-showscores", Sbar_DontShowScores);
+	Cvar_RegisterVariable(&sbar_digits);//alex3474247
 
 	Sbar_LoadPics ();
 }
@@ -439,14 +442,22 @@ void Sbar_DrawNum (int x, int y, int num, int digits, int color)
 	char	*ptr;
 	int	l, frame;
 
-	num = q_min(999,num); //johnfitz -- cap high values rather than truncating number
-
+	if (sbar_digits.value <= 3)
+	{
+		num = q_min(999,num); //johnfitz -- cap high values rather than truncating number
+	}
 	l = Sbar_itoa (num, str);
 	ptr = str;
 	if (l > digits)
 		ptr += (l-digits);
 	if (l < digits)
-		x += (digits-l)*24;
+		//x += (digits-l)*24;
+	{
+		if (sbar_digits.value <= 3)
+			x += (digits - l) * 24;
+		else
+			x += (digits - l) * (24 - (digits - 3) * 4);
+	}
 
 	while (*ptr)
 	{
@@ -456,7 +467,13 @@ void Sbar_DrawNum (int x, int y, int num, int digits, int color)
 			frame = *ptr -'0';
 
 		Sbar_DrawPic (x,y,sb_nums[color][frame]); //johnfitz -- DrawTransPic is obsolete
-		x += 24;
+		//x += 24;
+
+		if (sbar_digits.value <= 3)
+			x += 24;
+		else
+			x += (24 - (digits - 3) * 4);
+
 		ptr++;
 	}
 }
@@ -722,8 +739,17 @@ void Sbar_DrawInventory (void)
 	for (i = 0; i < 4; i++)
 	{
 		val = cl.stats[STAT_SHELLS+i];
-		val = (val < 0)? 0 : q_min(999,val);//johnfitz -- cap displayed value to 999
-		sprintf (num, "%3i", val);
+		if (sbar_digits.value <= 3)
+		{
+			val = (val < 0)? 0 : q_min(999,val);//johnfitz -- cap displayed value to 999
+			sprintf (num, "%3i", val);
+		}
+		else
+		{
+			val = (val < 0)? 0 : val;
+			sprintf (num, "%4i", val);
+		}
+		
 		if (num[0] != ' ')
 			Sbar_DrawCharacter ( (6*i+1)*8 + 2, -24, 18 + num[0] - '0');
 		if (num[1] != ' ')
@@ -1126,8 +1152,13 @@ void Sbar_Draw (void)
 		{
 			if (rogue)
 			{
-				Sbar_DrawNum (24, 0, cl.stats[STAT_ARMOR], 3,
-								cl.stats[STAT_ARMOR] <= 25);
+				if (sbar_digits.value != 3)
+								Sbar_DrawNum(24, 0, cl.stats[STAT_ARMOR], sbar_digits.value
+								, cl.stats[STAT_ARMOR] <= 25);
+							else
+								Sbar_DrawNum(24, 0, cl.stats[STAT_ARMOR], 3
+								, cl.stats[STAT_ARMOR] <= 25);
+
 				if (cl.items & RIT_ARMOR3)
 					Sbar_DrawPic (0, 0, sb_armor[2]);
 				else if (cl.items & RIT_ARMOR2)
@@ -1137,8 +1168,13 @@ void Sbar_Draw (void)
 			}
 			else
 			{
-				Sbar_DrawNum (24, 0, cl.stats[STAT_ARMOR], 3
-				, cl.stats[STAT_ARMOR] <= 25);
+				if (sbar_digits.value != 3)
+								Sbar_DrawNum(24, 0, cl.stats[STAT_ARMOR], sbar_digits.value
+								, cl.stats[STAT_ARMOR] <= 25);
+							else
+								Sbar_DrawNum(24, 0, cl.stats[STAT_ARMOR], 3
+								, cl.stats[STAT_ARMOR] <= 25);
+
 				if (cl.items & IT_ARMOR3)
 					Sbar_DrawPic (0, 0, sb_armor[2]);
 				else if (cl.items & IT_ARMOR2)
@@ -1152,8 +1188,12 @@ void Sbar_Draw (void)
 		Sbar_DrawFace ();
 
 	// health
-		Sbar_DrawNum (136, 0, cl.stats[STAT_HEALTH], 3
-		, cl.stats[STAT_HEALTH] <= 25);
+		if (sbar_digits.value != 3)
+					Sbar_DrawNum(136, 0, cl.stats[STAT_HEALTH], sbar_digits.value
+					, cl.stats[STAT_HEALTH] <= 25);
+				else
+					Sbar_DrawNum(136, 0, cl.stats[STAT_HEALTH], 3
+					, cl.stats[STAT_HEALTH] <= 25);
 
 	// ammo icon
 		if (rogue)
@@ -1185,8 +1225,12 @@ void Sbar_Draw (void)
 				Sbar_DrawPic (224, 0, sb_ammo[3]);
 		}
 
-		Sbar_DrawNum (248, 0, cl.stats[STAT_AMMO], 3,
-					  cl.stats[STAT_AMMO] <= 10);
+		if (sbar_digits.value != 3)
+					Sbar_DrawNum(239, 0, cl.stats[STAT_AMMO], sbar_digits.value
+					, cl.stats[STAT_AMMO] <= 10);
+				else
+					Sbar_DrawNum(248, 0, cl.stats[STAT_AMMO], 3
+					, cl.stats[STAT_AMMO] <= 10);
 	}
 
 	//johnfitz -- removed the vid.width > 320 check here
